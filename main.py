@@ -47,7 +47,8 @@ def downloadImage(imageUrl:str) ->None:
         # 設定檔案路徑及檔名
         filePath = dirPath + fileName
         while os.path.exists(filePath):
-            filePath = '_' + filePath 
+            fileName = '_' + fileName
+            filePath = dirPath + fileName
         # 創建檔案
         with open(filePath, 'bw') as image:
             image.write(imgRes.content)
