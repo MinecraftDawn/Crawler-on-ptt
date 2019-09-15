@@ -11,6 +11,8 @@ root = "https://www.ptt.cc"
 newest = root + "/bbs/Beauty/index.html"
 # 設定cookie
 cookie_over18 = {"over18":'1'}
+# http header
+http_header = {'Connection':'close'}
 # 目錄資料夾位置
 dirPath = "images/"
 
@@ -19,7 +21,7 @@ dirPath = "images/"
 """
 def findNewestPage():
     # 取得最新頁數的respond
-    resNewest = requests.get(newest, cookies=cookie_over18)
+    resNewest = requests.get(newest, cookies=cookie_over18, headers=http_header)
     # 解析html
     soup = BeautifulSoup(resNewest.text, "html.parser")
     # 取得所有btn wide物件
@@ -37,23 +39,34 @@ def downloadImage(imageUrl:str) ->None:
     # 取得檔案名稱
     fileName = imageUrl.split('/')[-1]
     # 發送請求，取得檔案資料
-    imgRes = requests.get(imageUrl)
-    #若資料夾不存在，則創建資料夾
-    if not os.path.exists(dirPath):
-        os.mkdir(dirPath)
     try:
+        imgRes = requests.get(imageUrl, headers=http_header)
+        #若資料夾不存在，則創建資料夾
+        if not os.path.exists(dirPath):
+            os.mkdir(dirPath)
         # 創建檔案
         with open(dirPath + fileName, 'bw') as image:
             image.write(imgRes.content)
-    except IOError as ioError:
-        print(ioError)
+    except IOError as e:
+        print(e)
+    except requests.exceptions.RequestException as e:
+        print(e)
 
-# 從最新頁(數字最大)，到第一頁迭代
-for page in range(findNewestPage(),0,-1):
+# 從最新頁(數字最大)迭代到第一頁
+start = findNewestPage()
+try:
+    with open("page.ini", "r") as pageFile:
+        start = int(pageFile.read())
+except FileNotFoundError:
+    pass
+except TypeError:
+    print("page.ini content error")
+    
+for page in range(start,0,-1):
     # 設定主頁面網址
     url = root + "/bbs/Beauty/index" + str(page) +".html"
     # 取得頁面respond
-    respond = requests.get(url, cookies=cookie_over18)
+    respond = requests.get(url, cookies=cookie_over18, headers=http_header)
     # 解析主頁html
     soup = BeautifulSoup(respond.text, "html.parser")
     # 取得頁面文章
@@ -63,12 +76,13 @@ for page in range(findNewestPage(),0,-1):
         # 取得文章連結
         artiUrl = root + title.a["href"]
         # 取得文章respond
-        artiRes = requests.get(artiUrl, cookies=cookie_over18)
+        artiRes = requests.get(artiUrl, cookies=cookie_over18, headers=http_header)
         # 解析文章html
         artiSoup = BeautifulSoup(artiRes.text , "html.parser")
         # 找到主要div
         mainDiv = artiSoup.find("div", id="main-content")
-        
+        # 若未找到則繼續
+        if not mainDiv: continue
         # 找到全部的連結
         for link in mainDiv.find_all("a"):
             # 取得連結網址
