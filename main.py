@@ -44,8 +44,12 @@ def downloadImage(imageUrl:str) ->None:
         #若資料夾不存在，則創建資料夾
         if not os.path.exists(dirPath):
             os.mkdir(dirPath)
+        # 設定檔案路徑及檔名
+        filePath = dirPath + fileName
+        while os.path.exists(filePath):
+            filePath = '_' + filePath 
         # 創建檔案
-        with open(dirPath + fileName, 'bw') as image:
+        with open(filePath, 'bw') as image:
             image.write(imgRes.content)
     except IOError as e:
         print(e)
@@ -73,6 +77,8 @@ for page in range(start,0,-1):
     titles = soup.find_all("div", class_="title")
     
     for title in titles:
+        # 若該div未有連結
+        if not title.a: continue
         # 取得文章連結
         artiUrl = root + title.a["href"]
         # 取得文章respond
