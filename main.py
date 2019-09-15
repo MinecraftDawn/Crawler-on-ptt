@@ -85,3 +85,7 @@ for page in range(findNewestPage(),0,-1):
                 # 新增執行緒下載圖片
                 thread = threading.Thread(target=downloadImage,args=(imageUrl,))
                 thread.start()
+                
+    # 開啟檔案，用來儲存下載頁數
+    with open("page.ini", "w") as pageFile:
+        pageFile.write(str(page))
