@@ -3,6 +3,7 @@ import os
 import time
 import requests
 import threading
+from PIL import Image
 from bs4 import BeautifulSoup
 
 root = "https://www.ptt.cc"
@@ -52,10 +53,14 @@ def downloadImage(imageUrl:str) ->None:
         # 創建檔案
         with open(filePath, 'bw') as image:
             image.write(imgRes.content)
+
+        Image.open(filePath)
     except IOError as e:
         print(e)
     except requests.exceptions.RequestException as e:
         print(e)
+    except OSError:
+        pass
 
 # 從最新頁(數字最大)迭代到第一頁
 start = findNewestPage()

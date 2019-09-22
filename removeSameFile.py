@@ -22,5 +22,3 @@ for index,fileName in enumerate(directory):
         os.remove(filePath)
     else:
         fileSet.add(fileHash)
-        
-        
