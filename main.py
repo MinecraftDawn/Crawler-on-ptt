@@ -1,6 +1,7 @@
 import re
 import os
 import time
+import json
 import requests
 import threading
 from PIL import Image
@@ -11,11 +12,19 @@ root = "https://www.ptt.cc"
 # 取得最新頁數
 newest = root + "/bbs/Beauty/index.html"
 # 設定cookie
-cookie_over18 = {"over18":'1'}
+cookie_over18 = {"over18": '1'}
 # http header
-http_header = {'Connection':'close'}
+http_header = {'Connection': 'close'}
 # 目錄資料夾位置
 dirPath = "images/"
+# 檔案格式
+jsonFile = {"page": 1,
+            "hash": []}
+try:
+    with open("imgHash.json", "r") as file:
+        jsonFile = json.loads(file.read())
+except FileNotFoundError:
+    pass
 
 """
 找出最新頁面的url
@@ -33,16 +42,17 @@ def findNewestPage():
             tailUrl = btn['href'].split('/')[-1]
             return int(tailUrl[5:tailUrl.find('.')])
 
+
 """
 下載圖片
 """
-def downloadImage(imageUrl:str) ->None:
+def downloadImage(imageUrl: str) -> None:
     # 取得檔案名稱
     fileName = imageUrl.split('/')[-1]
     # 發送請求，取得檔案資料
     try:
         imgRes = requests.get(imageUrl, headers=http_header)
-        #若資料夾不存在，則創建資料夾
+        # 若資料夾不存在，則創建資料夾
         if not os.path.exists(dirPath):
             os.mkdir(dirPath)
         # 設定檔案路徑及檔名
@@ -50,38 +60,37 @@ def downloadImage(imageUrl:str) ->None:
         while os.path.exists(filePath):
             fileName = '_' + fileName
             filePath = dirPath + fileName
+
+        # 判斷檔案是否存在
+        if hash(imgRes.content) in jsonFile["hash"]:
+            return
+
         # 創建檔案
         with open(filePath, 'bw') as image:
             image.write(imgRes.content)
+            jsonFile["hash"].append(hash(imgRes.content))
 
+        # 測試檔案是否能正確開啟
         Image.open(filePath)
     except IOError as e:
         print(e)
-    except requests.exceptions.RequestException as e:
-        print(e)
     except OSError:
-        pass
+        os.remove(filePath)
+
 
 # 從最新頁(數字最大)迭代到第一頁
-start = findNewestPage()
-try:
-    with open("page.ini", "r") as pageFile:
-        start = int(pageFile.read())
-except FileNotFoundError:
-    pass
-except TypeError:
-    print("page.ini content error")
-    
-for page in range(start,0,-1):
+start = jsonFile["page"]
+
+for page in range(start, findNewestPage()):
     # 設定主頁面網址
-    url = root + "/bbs/Beauty/index" + str(page) +".html"
+    url = root + "/bbs/Beauty/index" + str(page) + ".html"
     # 取得頁面respond
     respond = requests.get(url, cookies=cookie_over18, headers=http_header)
     # 解析主頁html
     soup = BeautifulSoup(respond.text, "html.parser")
     # 取得頁面文章
     titles = soup.find_all("div", class_="title")
-    
+
     for title in titles:
         # 若該div未有連結
         if not title.a: continue
@@ -90,7 +99,7 @@ for page in range(start,0,-1):
         # 取得文章respond
         artiRes = requests.get(artiUrl, cookies=cookie_over18, headers=http_header)
         # 解析文章html
-        artiSoup = BeautifulSoup(artiRes.text , "html.parser")
+        artiSoup = BeautifulSoup(artiRes.text, "html.parser")
         # 找到主要div
         mainDiv = artiSoup.find("div", id="main-content")
         # 若未找到則繼續
@@ -109,9 +118,10 @@ for page in range(start,0,-1):
                     print("目前執行緒數量： " + str(threading.active_count()))
                     time.sleep(5)
                 # 新增執行緒下載圖片
-                thread = threading.Thread(target=downloadImage,args=(imageUrl,))
+                thread = threading.Thread(target=downloadImage, args=(imageUrl,))
                 thread.start()
-                
-    # 開啟檔案，用來儲存下載頁數
-    with open("page.ini", "w") as pageFile:
-        pageFile.write(str(page))
+
+    # 開啟檔案，用來儲存下載頁數，及存過檔案的hash      
+    with open("imgHash.json", "w") as file:
+        jsonFile["page"] = page
+        json.dump(jsonFile, file, indent=2)
